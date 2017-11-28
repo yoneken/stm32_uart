@@ -29,24 +29,23 @@ void UartUtil_contw(void)
   int blen = sizeof(txbuf);
 
   if(huart->gState != HAL_UART_STATE_BUSY_TX){
-    if(tind_write == tind_flush+1){
-      // all buffer is flushed.
-      return;
-    }else if((tind_write == 0) && (tind_flush == blen-1)){
+    if(tind_write == tind_flush){
       // all buffer is flushed.
       return;
     }else if(tind_write > tind_flush){
-      HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush+1]), tind_write - tind_flush - 1);
-      tind_flush += tind_write - tind_flush - 1;
+      HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), tind_write - tind_flush);
+      tind_flush += tind_write - tind_flush;
     }else{
       if(tind_flush != blen){
-        HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush+1]), blen - tind_flush);
+        HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), blen - tind_flush);
         tind_flush += blen - tind_flush;
       }else{
         HAL_UART_Transmit_IT(huart, (uint8_t *)txbuf, tind_write);
-        tind_flush = tind_write - 1;
+        tind_flush = tind_write;
       }
     }
+
+    if(tind_flush == blen) tind_flush = 0;
   }
 }
 
