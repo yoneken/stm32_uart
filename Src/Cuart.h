@@ -13,7 +13,9 @@
 extern "C" {
 #endif
 
-void UartUtil_Init(void);
+void UartUtil_Init(UART_HandleTypeDef *hnd);
+void UartUtil_putc(char c);
+void UartUtil_puts(char str[]);
 int printf(const char *format, ...);
 
 #ifdef __cplusplus

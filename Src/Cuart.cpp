@@ -9,27 +9,95 @@
 #include <string.h>
 
 char rxbuf[64];
-char rxindex = 0;
+volatile char rxindex = 0;
 char rxbuf2[1];
 
-extern UART_HandleTypeDef huart2;
+char txbuf[32];
+volatile char tind_write = 0;
+volatile char tind_flush = 0;
 
-void UartUtil_Init(void)
+UART_HandleTypeDef *huart;
+
+void UartUtil_Init(UART_HandleTypeDef *hnd)
 {
-  HAL_UART_Receive_IT(&huart2, (uint8_t *)rxbuf2, sizeof(rxbuf2));
+  huart = hnd;
+  HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
+}
+
+void UartUtil_contw(void)
+{
+  int blen = sizeof(txbuf);
+
+  if(huart->gState != HAL_UART_STATE_BUSY_TX){
+    if(tind_write == tind_flush+1){
+      // all buffer is flushed.
+      return;
+    }else if((tind_write == 0) && (tind_flush == blen-1)){
+      // all buffer is flushed.
+      return;
+    }else if(tind_write > tind_flush){
+      HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush+1]), tind_write - tind_flush - 1);
+      tind_flush += tind_write - tind_flush - 1;
+    }else{
+      if(tind_flush != blen){
+        HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush+1]), blen - tind_flush);
+        tind_flush += blen - tind_flush;
+      }else{
+        HAL_UART_Transmit_IT(huart, (uint8_t *)txbuf, tind_write);
+        tind_flush = tind_write - 1;
+      }
+    }
+  }
+}
+
+void UartUtil_putc(char c)
+{
+  int blen = sizeof(txbuf);
+
+  if(tind_write < blen - 1){
+    txbuf[tind_write] = c;
+    tind_write++;
+  }else{
+    txbuf[0] = c;
+    tind_write = 1;
+  }
+
+  UartUtil_contw();
+}
+
+void UartUtil_puts(char str[])
+{
+  int n = strlen(str);
+  int blen = sizeof(txbuf);
+  n = n <= blen ? n : blen;
+
+  int n_tail = n <= blen - tind_write ? n : blen - tind_write;
+  strncpy(&(txbuf[tind_write]), str, n_tail);
+  tind_write = (tind_write + n)% blen;
+
+  if(n != n_tail){
+	strncpy(txbuf, &(str[n_tail]), n - n_tail);
+  }
+
+  UartUtil_contw();
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
+{
+  UartUtil_contw();
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 {
   char res = rxbuf2[0];
-  HAL_UART_Receive_IT(&huart2, (uint8_t *)rxbuf2, sizeof(rxbuf2));
+  HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
 
   if(res == '\r'){
     rxbuf[rxindex++] = res;
     rxbuf[rxindex++] = '\n';
 
-    //HAL_UART_Transmit(&huart2, (uint8_t *)rxbuf, rxindex, 0xFF);
-    HAL_UART_Transmit_IT(&huart2, (uint8_t *)rxbuf, rxindex);
+    //HAL_UART_Transmit(huart, (uint8_t *)rxbuf, rxindex, 0xFF);
+    HAL_UART_Transmit_IT(huart, (uint8_t *)rxbuf, rxindex);
 
     rxindex = 0;
   }else{
@@ -62,7 +130,7 @@ int printf(const char *format, ...)
         va_end(ap);
         return i;
       }else{
-        HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 0xFF);
+        UartUtil_putc(c);
         i++;
       }
     }
@@ -93,14 +161,14 @@ int printf(const char *format, ...)
       long val, base;
       double vald;
       case 'c':
-        c = va_arg(ap, char);
+        c = va_arg(ap, int);
       default:
         i++;
-        HAL_UART_Transmit(&huart2, (uint8_t *)&c, 1, 0xFF);
+        UartUtil_putc(c);
         continue;
       case 's':
         ptr = va_arg(ap, char *);
-        HAL_UART_Transmit(&huart2, (uint8_t *)ptr, strlen(ptr), 0xFF);
+        UartUtil_puts(ptr);
         i += strlen(ptr);
         continue;
       case 'o':
@@ -157,7 +225,7 @@ int printf(const char *format, ...)
       }
       if(flag&0x08) ptr = scratch + 31 - l;
       if(pc) *--ptr = pc;
-      HAL_UART_Transmit(&huart2, (uint8_t *)ptr, strlen(ptr), 0xFF);
+      UartUtil_puts(ptr);
       i += strlen(ptr);
     }
   }

@@ -96,10 +96,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   // UART
   char txbuf[] = "\r\nSTM32F303K8 UART2 TEST\r\n";
-  HAL_UART_Transmit_IT(&huart2, (uint8_t *)txbuf, sizeof(txbuf));
+  char str[] = "STM32";
+  //HAL_UART_Transmit_IT(&huart2, (uint8_t *)txbuf, sizeof(txbuf));
 
-  UartUtil_Init();
-  printf("String %s\r\n", "Get wild");
+  UartUtil_Init(&huart2);
+  //printf("String %s\r\n", "Get wild");
 /*
   my_printf("Decimal %d\r\n", -3);
   my_printf("Octa %o\r\n", 16);
@@ -115,6 +116,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  int i = 0;
   while (1)
   {
   /* USER CODE END WHILE */
@@ -127,6 +129,9 @@ int main(void)
 	  //HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 	  HAL_Delay(500);
 
+	  //UartUtil_puts(txbuf);
+	  //UartUtil_putc('0' + i++);
+	  printf("Hello %s:%d\r\n", str, i++);
   }
   /* USER CODE END 3 */
 
