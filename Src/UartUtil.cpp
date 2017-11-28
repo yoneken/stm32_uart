@@ -1,27 +1,27 @@
 /*
- * Cuart.cpp
+ * UartUtil.cpp
  *
  *  Created on: 2017/11/27
  *      Author: yoneken
  */
 
-#include "Cuart.h"
 #include <string.h>
+#include "UartUtil.h"
 
-class Cuart;
+class UartUtil;
 
 typedef struct uart_chain{
-  Cuart *c;
+  UartUtil *c;
   UART_HandleTypeDef *hnd;
   uart_chain *next;
 };
 
 uart_chain *chain = NULL;
 
-class Cuart {
+class UartUtil {
 public:
-  Cuart(UART_HandleTypeDef *hnd);
-  virtual ~Cuart();
+  UartUtil(UART_HandleTypeDef *hnd);
+  virtual ~UartUtil();
   int printf(const char *format, ...);
   void flush(void);
   void recv(void);
@@ -41,16 +41,16 @@ private:
   void puts(char[]);
 };
 
-Cuart::Cuart(UART_HandleTypeDef *hnd){
+UartUtil::UartUtil(UART_HandleTypeDef *hnd){
   huart = hnd;
   HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
 }
 
-Cuart::~Cuart(){
+UartUtil::~UartUtil(){
 	// TODO Auto-generated destructor stub
 }
 
-void Cuart::flush(void)
+void UartUtil::flush(void)
 {
   int blen = sizeof(txbuf);
 
@@ -75,7 +75,7 @@ void Cuart::flush(void)
   }
 }
 
-void Cuart::putcc(char c)
+void UartUtil::putcc(char c)
 {
   int blen = sizeof(txbuf);
 
@@ -90,7 +90,7 @@ void Cuart::putcc(char c)
   flush();
 }
 
-void Cuart::puts(char str[])
+void UartUtil::puts(char str[])
 {
   int n = strlen(str);
   int blen = sizeof(txbuf);
@@ -107,7 +107,7 @@ void Cuart::puts(char str[])
   flush();
 }
 
-int Cuart::printf(const char *format, ...){
+int UartUtil::printf(const char *format, ...){
   int  i = 0;
   va_list ap;
 
@@ -224,7 +224,7 @@ int Cuart::printf(const char *format, ...){
   }
 }
 
-void Cuart::recv(void)
+void UartUtil::recv(void)
 {
   HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
 
@@ -252,7 +252,7 @@ void Cuart::recv(void)
 
 void *new_uart(UART_HandleTypeDef *hnd)
 {
-  Cuart *c = new Cuart(hnd);
+  UartUtil *c = new UartUtil(hnd);
 
   uart_chain *n = new uart_chain();
   n->c = c;
@@ -287,14 +287,14 @@ void delete_uart(void *cuart)
 
     prev->next = i->next;
 
-    delete (Cuart *)(i->c);
+    delete (UartUtil *)(i->c);
     delete i;
   }
 }
 
 int uart_printf(void *cuart, const char *format, ...)
 {
-  ((Cuart *)cuart)->printf(format);
+  ((UartUtil *)cuart)->printf(format);
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hnd)

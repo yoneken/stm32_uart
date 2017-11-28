@@ -1,10 +1,10 @@
-/* * Cuart.h
+/* * UartUtil.h
  *
  *  Created on: 2017/11/27
  *      Author: yoneken
  */
-#ifndef _CUART_H_
-#define _CUART_H_
+#ifndef _UARTUTIL_H_
+#define _UARTUTIL_H_
 
 #include <stdarg.h>
 #include "stm32f3xx_hal.h"
@@ -22,4 +22,4 @@ int uart_printf(void *cuart, const char *format, ...);
 #endif
 
 
-#endif /* _CUART_H_ */
+#endif /* _UARTUTIL_H_ */

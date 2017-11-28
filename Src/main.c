@@ -39,7 +39,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f3xx_hal.h"
-#include "Cuart.h"
+
+#include "UartUtil.h"
 
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
