@@ -8,39 +8,65 @@
 #include "Cuart.h"
 #include <string.h>
 
-char rxbuf[64];
-volatile char rxindex = 0;
-char rxbuf2[1];
+class Cuart;
 
-char txbuf[32];
-volatile char tind_write = 0;
-volatile char tind_flush = 0;
+typedef struct uart_chain{
+  Cuart *c;
+  UART_HandleTypeDef *hnd;
+  uart_chain *next;
+};
 
-UART_HandleTypeDef *huart;
+uart_chain *chain = NULL;
 
-void UartUtil_Init(UART_HandleTypeDef *hnd)
-{
+class Cuart {
+public:
+  Cuart(UART_HandleTypeDef *hnd);
+  virtual ~Cuart();
+  int printf(const char *format, ...);
+  void flush(void);
+  void recv(void);
+
+private:
+  char rxbuf[64];
+  volatile char rxindex = 0;
+  char rxbuf2[1];
+
+  char txbuf[64];
+  volatile char tind_write = 0;
+  volatile char tind_flush = 0;
+
+  UART_HandleTypeDef *huart;
+
+  void putcc(char);
+  void puts(char[]);
+};
+
+Cuart::Cuart(UART_HandleTypeDef *hnd){
   huart = hnd;
   HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
 }
 
-void UartUtil_contw(UART_HandleTypeDef *hnd)
+Cuart::~Cuart(){
+	// TODO Auto-generated destructor stub
+}
+
+void Cuart::flush(void)
 {
   int blen = sizeof(txbuf);
 
-  if(hnd->gState != HAL_UART_STATE_BUSY_TX){
+  if(huart->gState != HAL_UART_STATE_BUSY_TX){
     if(tind_write == tind_flush){
       // all buffer is flushed.
       return;
     }else if(tind_write > tind_flush){
-      HAL_UART_Transmit_IT(hnd, (uint8_t *)&(txbuf[tind_flush]), tind_write - tind_flush);
+      HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), tind_write - tind_flush);
       tind_flush += tind_write - tind_flush;
     }else{
       if(tind_flush != blen){
-        HAL_UART_Transmit_IT(hnd, (uint8_t *)&(txbuf[tind_flush]), blen - tind_flush);
+        HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), blen - tind_flush);
         tind_flush += blen - tind_flush;
       }else{
-        HAL_UART_Transmit_IT(hnd, (uint8_t *)txbuf, tind_write);
+        HAL_UART_Transmit_IT(huart, (uint8_t *)txbuf, tind_write);
         tind_flush = tind_write;
       }
     }
@@ -49,7 +75,7 @@ void UartUtil_contw(UART_HandleTypeDef *hnd)
   }
 }
 
-void UartUtil_putc(UART_HandleTypeDef *hnd, char c)
+void Cuart::putcc(char c)
 {
   int blen = sizeof(txbuf);
 
@@ -61,10 +87,10 @@ void UartUtil_putc(UART_HandleTypeDef *hnd, char c)
     tind_write = 1;
   }
 
-  UartUtil_contw(hnd);
+  flush();
 }
 
-void UartUtil_puts(UART_HandleTypeDef *hnd, char str[])
+void Cuart::puts(char str[])
 {
   int n = strlen(str);
   int blen = sizeof(txbuf);
@@ -78,43 +104,10 @@ void UartUtil_puts(UART_HandleTypeDef *hnd, char str[])
 	strncpy(txbuf, &(str[n_tail]), n - n_tail);
   }
 
-  UartUtil_contw(hnd);
+  flush();
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hnd)
-{
-  UartUtil_contw(hnd);
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
-{
-  char res = rxbuf2[0];
-  HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
-
-  if(res == '\r'){
-    rxbuf[rxindex++] = res;
-    rxbuf[rxindex++] = '\n';
-
-    //HAL_UART_Transmit(huart, (uint8_t *)rxbuf, rxindex, 0xFF);
-    HAL_UART_Transmit_IT(huart, (uint8_t *)rxbuf, rxindex);
-
-    rxindex = 0;
-  }else{
-    rxbuf[rxindex] = res;
-
-    if(rxindex <= sizeof(rxbuf)-2){
-  	  rxindex++;
-    }else{
-  	  rxindex = 0;
-    }
-  }
-}
-
-/************************************/
-/*  print with format               */
-/************************************/
-int m_printf(UART_HandleTypeDef *hnd, const char *format, ...)
-{
+int Cuart::printf(const char *format, ...){
   int  i = 0;
   va_list ap;
 
@@ -129,7 +122,7 @@ int m_printf(UART_HandleTypeDef *hnd, const char *format, ...)
         va_end(ap);
         return i;
       }else{
-        UartUtil_putc(hnd, c);
+        putcc(c);
         i++;
       }
     }
@@ -163,11 +156,11 @@ int m_printf(UART_HandleTypeDef *hnd, const char *format, ...)
         c = va_arg(ap, int);
       default:
         i++;
-        UartUtil_putc(hnd, c);
+        putcc(c);
         continue;
       case 's':
         ptr = va_arg(ap, char *);
-        UartUtil_puts(hnd, ptr);
+        puts(ptr);
         i += strlen(ptr);
         continue;
       case 'o':
@@ -204,6 +197,7 @@ int m_printf(UART_HandleTypeDef *hnd, const char *format, ...)
         for(i=0;i<m;i++) vald*=10.0;
         val = (long)vald;
         goto CONV_LOOP;
+
       CONV_LOOP:
       l = n+m+(flag&0x10?1:0);
       for(i=0;i<31;i++) scratch[i] = flag&0x04 ? '0' : ' ';
@@ -224,54 +218,106 @@ int m_printf(UART_HandleTypeDef *hnd, const char *format, ...)
       }
       if(flag&0x08) ptr = scratch + 31 - l;
       if(pc) *--ptr = pc;
-      UartUtil_puts(hnd, ptr);
+      puts(ptr);
       i += strlen(ptr);
     }
   }
 }
 
-class Cuart {
-public:
-  Cuart(UART_HandleTypeDef *hnd);
-  virtual ~Cuart();
-  int print(const char *format, ...);
+void Cuart::recv(void)
+{
+  HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
 
-private:
-  char rxbuf[64];
-  volatile char rxindex = 0;
-  char rxbuf2[1];
+  char res = rxbuf2[0];
 
-  char txbuf[32];
-  volatile char tind_write = 0;
-  volatile char tind_flush = 0;
+  if(res == '\r'){
+    rxbuf[rxindex++] = res;
+    rxbuf[rxindex++] = '\n';
 
-  UART_HandleTypeDef *huart;
-};
+    char str[64];
+    strncpy(str, rxbuf, rxindex);
+    printf("Recv: %s\r\n", str);
 
-Cuart::Cuart(UART_HandleTypeDef *hnd){
-  huart = hnd;
-}
+    rxindex = 0;
+  }else{
+    rxbuf[rxindex] = res;
 
-Cuart::~Cuart(){
-	// TODO Auto-generated destructor stub
-}
-
-int Cuart::print(const char *format, ...){
-  return printf("Hello world\r\n");
+    if(rxindex <= sizeof(rxbuf)-2){
+  	  rxindex++;
+    }else{
+  	  rxindex = 0;
+    }
+  }
 }
 
 void *new_uart(UART_HandleTypeDef *hnd)
 {
-  return new Cuart(hnd);
+  Cuart *c = new Cuart(hnd);
+
+  uart_chain *n = new uart_chain();
+  n->c = c;
+  n->hnd = hnd;
+  n->next = NULL;
+
+  if(chain == NULL){
+    chain = n;
+  }else{
+    // search last
+    uart_chain *i = chain;
+    while(i->next != NULL) i = i->next;
+    i = n;
+  }
+
+  return c;
 }
 
 void delete_uart(void *cuart)
 {
-  delete (Cuart *)cuart;
+  if(chain == NULL){
+    return;
+  }else{
+    // search node
+    uart_chain *i = chain;
+    uart_chain *prev;
+    while((i->c != cuart) && (i->next != NULL)){
+      prev = i;
+      i = i->next;
+    }
+    if(i == NULL) return;
+
+    prev->next = i->next;
+
+    delete (Cuart *)(i->c);
+    delete i;
+  }
 }
 
 int uart_printf(void *cuart, const char *format, ...)
 {
-  ((Cuart *)cuart)->print(format);
+  ((Cuart *)cuart)->printf(format);
 }
 
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hnd)
+{
+  // search node
+  uart_chain *i = chain;
+
+  while((i != NULL) && (i->hnd != hnd)){
+    i = i->next;
+  }
+  if(i == NULL) return;
+  i->c->flush();
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *hnd)
+{
+  // search node
+  uart_chain *i = chain;
+
+  while((i != NULL) && (i->hnd != hnd)){
+    i = i->next;
+  }
+  if(i == NULL) return;
+
+  i->c->recv();
+}

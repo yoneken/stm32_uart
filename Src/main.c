@@ -95,11 +95,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
   // UART
-  char txbuf[] = "\r\nSTM32F303K8 UART2 TEST\r\n";
   char str[] = "STM32";
-  //HAL_UART_Transmit_IT(&huart2, (uint8_t *)txbuf, sizeof(txbuf));
-
-  UartUtil_Init(&huart2);
 
   void *cuart = new_uart(&huart2);
   uart_printf(cuart, "Test\r\n");
@@ -114,16 +110,14 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, SET);
-	  //HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-	  HAL_Delay(500);
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, RESET);
-	  //HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-	  HAL_Delay(500);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, SET);
+    //HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+    HAL_Delay(500);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, RESET);
+    //HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+    HAL_Delay(500);
 
-	  //UartUtil_puts(txbuf);
-	  //UartUtil_putc('0' + i++);
-	  m_printf(&huart2, "Hello %s:%d\r\n", str, i++);
+    uart_printf(cuart, "Hello %s:%d\r\n", str, i++);
   }
   /* USER CODE END 3 */
 

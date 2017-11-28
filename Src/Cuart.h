@@ -13,11 +13,6 @@
 extern "C" {
 #endif
 
-void UartUtil_Init(UART_HandleTypeDef *hnd);
-void UartUtil_putc(UART_HandleTypeDef *hnd, char c);
-void UartUtil_puts(UART_HandleTypeDef *hnd, char str[]);
-int m_printf(UART_HandleTypeDef *hnd, const char *format, ...);
-
 void *new_uart(UART_HandleTypeDef *hnd);
 void delete_uart(void *cuart);
 int uart_printf(void *cuart, const char *format, ...);
