@@ -24,23 +24,23 @@ void UartUtil_Init(UART_HandleTypeDef *hnd)
   HAL_UART_Receive_IT(huart, (uint8_t *)rxbuf2, sizeof(rxbuf2));
 }
 
-void UartUtil_contw(void)
+void UartUtil_contw(UART_HandleTypeDef *hnd)
 {
   int blen = sizeof(txbuf);
 
-  if(huart->gState != HAL_UART_STATE_BUSY_TX){
+  if(hnd->gState != HAL_UART_STATE_BUSY_TX){
     if(tind_write == tind_flush){
       // all buffer is flushed.
       return;
     }else if(tind_write > tind_flush){
-      HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), tind_write - tind_flush);
+      HAL_UART_Transmit_IT(hnd, (uint8_t *)&(txbuf[tind_flush]), tind_write - tind_flush);
       tind_flush += tind_write - tind_flush;
     }else{
       if(tind_flush != blen){
-        HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), blen - tind_flush);
+        HAL_UART_Transmit_IT(hnd, (uint8_t *)&(txbuf[tind_flush]), blen - tind_flush);
         tind_flush += blen - tind_flush;
       }else{
-        HAL_UART_Transmit_IT(huart, (uint8_t *)txbuf, tind_write);
+        HAL_UART_Transmit_IT(hnd, (uint8_t *)txbuf, tind_write);
         tind_flush = tind_write;
       }
     }
@@ -49,7 +49,7 @@ void UartUtil_contw(void)
   }
 }
 
-void UartUtil_putc(char c)
+void UartUtil_putc(UART_HandleTypeDef *hnd, char c)
 {
   int blen = sizeof(txbuf);
 
@@ -61,10 +61,10 @@ void UartUtil_putc(char c)
     tind_write = 1;
   }
 
-  UartUtil_contw();
+  UartUtil_contw(hnd);
 }
 
-void UartUtil_puts(char str[])
+void UartUtil_puts(UART_HandleTypeDef *hnd, char str[])
 {
   int n = strlen(str);
   int blen = sizeof(txbuf);
@@ -78,12 +78,12 @@ void UartUtil_puts(char str[])
 	strncpy(txbuf, &(str[n_tail]), n - n_tail);
   }
 
-  UartUtil_contw();
+  UartUtil_contw(hnd);
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hnd)
 {
-  UartUtil_contw();
+  UartUtil_contw(hnd);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
@@ -113,7 +113,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 /************************************/
 /*  print with format               */
 /************************************/
-int printf(const char *format, ...)
+int m_printf(UART_HandleTypeDef *hnd, const char *format, ...)
 {
   int  i = 0;
   va_list ap;
@@ -129,7 +129,7 @@ int printf(const char *format, ...)
         va_end(ap);
         return i;
       }else{
-        UartUtil_putc(c);
+        UartUtil_putc(hnd, c);
         i++;
       }
     }
@@ -163,11 +163,11 @@ int printf(const char *format, ...)
         c = va_arg(ap, int);
       default:
         i++;
-        UartUtil_putc(c);
+        UartUtil_putc(hnd, c);
         continue;
       case 's':
         ptr = va_arg(ap, char *);
-        UartUtil_puts(ptr);
+        UartUtil_puts(hnd, ptr);
         i += strlen(ptr);
         continue;
       case 'o':
@@ -224,7 +224,7 @@ int printf(const char *format, ...)
       }
       if(flag&0x08) ptr = scratch + 31 - l;
       if(pc) *--ptr = pc;
-      UartUtil_puts(ptr);
+      UartUtil_puts(hnd, ptr);
       i += strlen(ptr);
     }
   }
@@ -232,16 +232,46 @@ int printf(const char *format, ...)
 
 class Cuart {
 public:
-	Cuart();
-	virtual ~Cuart();
+  Cuart(UART_HandleTypeDef *hnd);
+  virtual ~Cuart();
+  int print(const char *format, ...);
+
+private:
+  char rxbuf[64];
+  volatile char rxindex = 0;
+  char rxbuf2[1];
+
+  char txbuf[32];
+  volatile char tind_write = 0;
+  volatile char tind_flush = 0;
+
+  UART_HandleTypeDef *huart;
 };
 
-Cuart::Cuart() {
-	// TODO Auto-generated constructor stub
-
+Cuart::Cuart(UART_HandleTypeDef *hnd){
+  huart = hnd;
 }
 
-Cuart::~Cuart() {
+Cuart::~Cuart(){
 	// TODO Auto-generated destructor stub
+}
+
+int Cuart::print(const char *format, ...){
+  return printf("Hello world\r\n");
+}
+
+void *new_uart(UART_HandleTypeDef *hnd)
+{
+  return new Cuart(hnd);
+}
+
+void delete_uart(void *cuart)
+{
+  delete (Cuart *)cuart;
+}
+
+int uart_printf(void *cuart, const char *format, ...)
+{
+  ((Cuart *)cuart)->print(format);
 }
 

@@ -100,18 +100,10 @@ int main(void)
   //HAL_UART_Transmit_IT(&huart2, (uint8_t *)txbuf, sizeof(txbuf));
 
   UartUtil_Init(&huart2);
-  //printf("String %s\r\n", "Get wild");
-/*
-  my_printf("Decimal %d\r\n", -3);
-  my_printf("Octa %o\r\n", 16);
-  my_printf("Bit %b\r\n", 5);
-  //my_printf("unsigned %u\r\n", -3);
-  my_printf("16bit %x\r\n", 0x6a);
-  my_printf("16bit %X\r\n", 0x6a);
-  my_printf("long %d\r\n", 31415556);
-  my_printf("Float %f\r\n", 3.14);
-  my_printf("Float %f\r\n", -3.14);
-*/
+
+  void *cuart = new_uart(&huart2);
+  uart_printf(cuart, "Test\r\n");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,7 +123,7 @@ int main(void)
 
 	  //UartUtil_puts(txbuf);
 	  //UartUtil_putc('0' + i++);
-	  printf("Hello %s:%d\r\n", str, i++);
+	  m_printf(&huart2, "Hello %s:%d\r\n", str, i++);
   }
   /* USER CODE END 3 */
 
