@@ -52,16 +52,17 @@ UartUtil::~UartUtil(){
 
 void UartUtil::flush(void)
 {
+  static uint8_t mutex = 0;
   int blen = sizeof(txbuf);
 
-  if(huart->gState != HAL_UART_STATE_BUSY_TX){
-    if(tind_write == tind_flush){
-      // all buffer is flushed.
-      return;
-    }else if(tind_write > tind_flush){
+  if((huart->gState != HAL_UART_STATE_BUSY_TX) && (mutex == 0)){
+    mutex = 1;
+    if((tind_flush == blen)&&(tind_write != blen)) tind_flush = 0;
+
+    if(tind_write > tind_flush){
       HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), tind_write - tind_flush);
       tind_flush += tind_write - tind_flush;
-    }else{
+    }else if(tind_write != tind_flush){
       if(tind_flush != blen){
         HAL_UART_Transmit_IT(huart, (uint8_t *)&(txbuf[tind_flush]), blen - tind_flush);
         tind_flush += blen - tind_flush;
@@ -71,7 +72,7 @@ void UartUtil::flush(void)
       }
     }
 
-    if(tind_flush == blen) tind_flush = 0;
+    mutex = 0;
   }
 }
 
@@ -79,7 +80,7 @@ void UartUtil::putcc(char c)
 {
   int blen = sizeof(txbuf);
 
-  if(tind_write < blen - 1){
+  if(tind_write < blen){
     txbuf[tind_write] = c;
     tind_write++;
   }else{
